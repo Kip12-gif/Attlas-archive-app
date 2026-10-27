@@ -1,3 +1,5 @@
+import json
+import random
 import folium
 import pandas as pd
 import plotly.express as px
@@ -49,7 +51,7 @@ div[data-testid="stBlock"] {
 }
 
 /* Deep Leather Brown Accent Buttons */
-div.stButton > button {
+div.stButton > button, div.stDownloadButton > button {
     background-color: #5C3A21 !important;
     color: #F4EEDC !important;
     border-radius: 4px !important;
@@ -57,7 +59,7 @@ div.stButton > button {
     font-family: 'Georgia', serif;
     font-weight: 600;
 }
-div.stButton > button:hover {
+div.stButton > button:hover, div.stDownloadButton > button:hover {
     background-color: #432A17 !important;
 }
 
@@ -166,6 +168,58 @@ if "bucket_list" not in st.session_state:
       },
   ]
 
+# Initialize clicked coordinate storage in session state
+if "selected_lat" not in st.session_state:
+  st.session_state.selected_lat = 0.0
+if "selected_lon" not in st.session_state:
+  st.session_state.selected_lon = 0.0
+
+# ==============================================================================
+# 🎛️ SIDEBAR: COMPASS & DATA PORTABILITY TOOLS
+# ==============================================================================
+with st.sidebar:
+  st.markdown("### 🧭 Explorer's Compass")
+  st.caption("Utilities for your digital field notebook.")
+
+  # 1. Dice Roll Randomizer
+  if st.button("🎲 Roll the Compass (Surprise Me)"):
+    unachieved = [
+        x for x in st.session_state.bucket_list if x["status"] != "Achieved"
+    ]
+    if unachieved:
+      picked = random.choice(unachieved)
+      st.success(
+          f"**Next Expedition Pick:**\n\n🎯 **{picked['title']}**\n📍"
+          f" *{picked['location']}*\n\n> {picked['notes']}"
+      )
+    else:
+      st.info("All expeditions have been successfully archived!")
+
+  st.divider()
+
+  # 2. JSON Export & Import
+  st.markdown("### 💾 Atlas Archives")
+  df_export = pd.DataFrame(st.session_state.bucket_list)
+  json_data = df_export.to_json(orient="records", indent=2)
+
+  st.download_button(
+      label="📥 Export Atlas to JSON",
+      data=json_data,
+      file_name="atlas_archive_backup.json",
+      mime="application/json",
+  )
+
+  uploaded_file = st.file_uploader("📤 Import Atlas JSON", type=["json"])
+  if uploaded_file is not None:
+    try:
+      imported_data = json.load(uploaded_file)
+      if isinstance(imported_data, list):
+        st.session_state.bucket_list = imported_data
+        st.success("Atlas successfully restored from archive!")
+        st.rerun()
+    except Exception as e:
+      st.error(f"Error loading file: {e}")
+
 # ==============================================================================
 # 📜 APP HEADER & METRICS
 # ==============================================================================
@@ -177,9 +231,9 @@ st.markdown(
 # Calculate metrics
 df = pd.DataFrame(st.session_state.bucket_list)
 total_goals = len(df)
-achieved = len(df[df["status"] == "Achieved"])
-in_progress = len(df[df["status"] == "In Progress"])
-planned = len(df[df["status"] == "Planned"])
+achieved = len(df[df["status"] == "Achieved"]) if not df.empty else 0
+in_progress = len(df[df["status"] == "In Progress"]) if not df.empty else 0
+planned = len(df[df["status"] == "Planned"]) if not df.empty else 0
 
 col1, col2, col3, col4 = st.columns(4)
 col1.metric(label="Total Milestones", value=total_goals)
@@ -196,7 +250,7 @@ col4.metric(label="Planned Expeditions", value=planned)
 st.divider()
 
 # ==============================================================================
-# 📑 TABS: ATLAS (GIS MAP) vs. FIELD NOTES (NOTEBOOK) vs. ADD NEW DREAM
+# 📑 TABS: ATLAS (GIS MAP) vs. FIELD NOTES vs. ADD NEW DREAM vs. ANALYTICS
 # ==============================================================================
 tab_map, tab_notes, tab_add, tab_analytics = st.tabs([
     "🗺️ The Global Atlas (GIS)",
@@ -208,11 +262,12 @@ tab_map, tab_notes, tab_add, tab_analytics = st.tabs([
 with tab_map:
   st.markdown("### Cartographic Field Atlas")
   st.caption(
-      "Switch between OpenStreetMap and Google Satellite layers using the map"
-      " control in the top-right corner."
+      "💡 **Pro-Tip:** Click anywhere on the map to capture coordinates for a"
+      " new expedition! Use top-right map controls to switch between"
+      " OpenStreetMap and Google Satellite."
   )
 
-  # Initialize map with OpenStreetMap as default
+  # Initialize map
   m = folium.Map(
       location=[20.0, 0.0],
       zoom_start=2,
@@ -253,11 +308,27 @@ with tab_map:
         icon=folium.Icon(color=marker_color, icon="book", prefix="fa"),
     ).add_to(m)
 
-  # Add layer control to switch between OSM and Google Satellite
+  # Add layer control
   folium.LayerControl().add_to(m)
 
-  # Render map in Streamlit
-  st_data = st_folium(m, width=1200, height=520)
+  # Render map and capture click events
+  map_data = st_folium(m, width=1200, height=520, key="atlas_map")
+
+  # Capture map click data
+  if map_data and map_data.get("last_clicked"):
+    clicked_lat = map_data["last_clicked"]["lat"]
+    clicked_lon = map_data["last_clicked"]["lng"]
+    if (
+        clicked_lat != st.session_state.selected_lat
+        or clicked_lon != st.session_state.selected_lon
+    ):
+      st.session_state.selected_lat = clicked_lat
+      st.session_state.selected_lon = clicked_lon
+      st.success(
+          f"📍 Captured Coordinates from Map: Latitude `{clicked_lat:.4f}`,"
+          " Longitude `{clicked_lon:.4f}`. Head to **'New Expedition Entry'** to"
+          " pin it!"
+      )
 
 with tab_notes:
   st.markdown("### 📖 The Field Notebook")
@@ -313,8 +384,8 @@ with tab_notes:
 with tab_add:
   st.markdown("### ✨ Record a New Entry in Your Atlas")
   st.markdown(
-      "Pin a new world destination, milestone, or ambition with its"
-      " coordinates."
+      "Pin a new world destination, milestone, or ambition. *Coordinates"
+      " auto-populate if you clicked the map!*"
   )
 
   with st.form("new_bucket_form"):
@@ -328,9 +399,23 @@ with tab_add:
 
     c1, c2 = st.columns(2)
     with c1:
-      new_lat = st.number_input("Latitude", value=39.5696, format="%.4f")
+      default_lat = (
+          st.session_state.selected_lat
+          if st.session_state.selected_lat != 0.0
+          else 39.5696
+      )
+      new_lat = st.number_input(
+          "Latitude", value=float(default_lat), format="%.4f"
+      )
     with c2:
-      new_lon = st.number_input("Longitude", value=2.6502, format="%.4f")
+      default_lon = (
+          st.session_state.selected_lon
+          if st.session_state.selected_lon != 0.0
+          else 2.6502
+      )
+      new_lon = st.number_input(
+          "Longitude", value=float(default_lon), format="%.4f"
+      )
 
     c3, c4 = st.columns(2)
     with c3:
