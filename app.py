@@ -1,64 +1,81 @@
-﻿import folium
+import folium
 import pandas as pd
 import plotly.express as px
 import streamlit as st
 from streamlit_folium import st_folium
 
 st.set_page_config(
-    page_title="Atlas & Archive | Global Bucket List & Field Notes",
-    page_icon="🗺️",
+    page_title="Atlas & Archive | Vintage Field Notebook & GIS Atlas",
+    page_icon="📓",
     layout="wide",
 )
 
 # ==============================================================================
-# 🎨 NOTEBOOK & LIGHT GIS THEME (CSS)
+# 📜 VINTAGE PARCHMENT NOTEBOOK & KEYLESS GIS THEME (CSS)
 # ==============================================================================
 custom_css = """
 <style>
-/* Notebook Cream Background */
+/* Authentic Aged Parchment Texture with Subtle Grid */
 .stApp {
-    background-color: #FDFBF7;
+    background-color: #F4EEDC;
+    background-image: radial-gradient(#E3D6B8 0.75px, transparent 0.75px), 
+                      radial-gradient(#E3D6B8 0.75px, #F4EEDC 0.75px);
+    background-size: 30px 30px;
+    background-position: 0 0, 15px 15px;
 }
 
-/* Typography - Deep Charcoal/Espresso */
+/* Antique Sepia & Leather Typography */
 html, body, [class*="css"], .stMarkdown, p, span, label, h1, h2, h3, h4, h5, h6 {
-    color: #2C221E !important;
-    font-family: 'Helvetica Neue', Helvetica, Arial, sans-serif;
+    color: #2D231B !important;
+    font-family: 'Georgia', serif;
 }
 
-/* Notebook Header styling */
-h1 {
+/* Notebook Header styling with antique underline */
+h1, h2, h3 {
+    font-family: 'Georgia', serif;
     font-weight: 700;
-    letter-spacing: -0.5px;
-    border-bottom: 2px solid #E6DFD5;
-    padding-bottom: 10px;
+    border-bottom: 2px solid #C4B495;
+    padding-bottom: 8px;
+    color: #4A3525 !important;
 }
 
-/* Card Containers styled like paper notes */
+/* Paper Journal Cards */
 div[data-testid="stBlock"] {
-    background-color: #FFFFFF !important;
-    border-radius: 10px;
-    border: 1px solid #E6DFD5;
-    box-shadow: 0 2px 8px rgba(44, 34, 30, 0.04);
-    padding: 1rem;
+    background-color: #FCF9F2 !important;
+    border-radius: 4px;
+    border: 1px solid #C4B495;
+    box-shadow: 3px 5px 15px rgba(45, 35, 27, 0.08);
+    padding: 1.2rem;
+}
+
+/* Deep Leather Brown Accent Buttons */
+div.stButton > button {
+    background-color: #5C3A21 !important;
+    color: #F4EEDC !important;
+    border-radius: 4px !important;
+    border: 1px solid #3B2414 !important;
+    font-family: 'Georgia', serif;
+    font-weight: 600;
+}
+div.stButton > button:hover {
+    background-color: #432A17 !important;
 }
 
 /* Custom Metrics */
 [data-testid="stMetricValue"] {
-    color: #8C5830 !important;
+    color: #5C3A21 !important;
     font-weight: 700 !important;
 }
 
-/* Buttons */
-div.stButton > button {
-    background-color: #8C5830 !important;
-    color: #FFFFFF !important;
-    border-radius: 6px !important;
-    border: none !important;
-    font-weight: 600 !important;
+/* Tabs Styling */
+.stTabs [data-baseweb="tab-list"] {
+    gap: 6px;
 }
-div.stButton > button:hover {
-    background-color: #6E4424 !important;
+.stTabs [data-baseweb="tab"] {
+    background-color: #E8DECA !important;
+    border-radius: 4px 4px 0px 0px;
+    border: 1px solid #C4B495;
+    padding: 10px 16px;
 }
 </style>
 """
@@ -150,12 +167,11 @@ if "bucket_list" not in st.session_state:
   ]
 
 # ==============================================================================
-# 🧭 APP HEADER & METRICS
+# 📜 APP HEADER & METRICS
 # ==============================================================================
-st.title("🗺️ Atlas & Archive")
+st.title("📓 Atlas & Archive")
 st.markdown(
-    "*A spatial bucket list and personal field notebook for dreamers and"
-    " explorers worldwide.*"
+    "*A spatial bucket list and personal field notebook for global explorers.*"
 )
 
 # Calculate metrics
@@ -166,10 +182,16 @@ in_progress = len(df[df["status"] == "In Progress"])
 planned = len(df[df["status"] == "Planned"])
 
 col1, col2, col3, col4 = st.columns(4)
-col1.metric(label="Total Life Goals", value=total_goals)
-col2.metric(label="Achieved", value=achieved, delta=f"{int(achieved/total_goals*100)}% Complete")
+col1.metric(label="Total Milestones", value=total_goals)
+col2.metric(
+    label="Archived (Achieved)",
+    value=achieved,
+    delta=f"{int(achieved/total_goals*100)}% Complete"
+    if total_goals > 0
+    else "0%",
+)
 col3.metric(label="In Progress", value=in_progress)
-col4.metric(label="Planned", value=planned)
+col4.metric(label="Planned Expeditions", value=planned)
 
 st.divider()
 
@@ -178,55 +200,68 @@ st.divider()
 # ==============================================================================
 tab_map, tab_notes, tab_add, tab_analytics = st.tabs([
     "🗺️ The Global Atlas (GIS)",
-    "📖 Field Notebook",
-    "✨ Add New Dream",
-    "📊 Progress Analytics",
+    "📖 Field Journal",
+    "✨ New Expedition Entry",
+    "📊 Expedition Analytics",
 ])
 
 with tab_map:
-  st.markdown("### Interactive World Atlas of Dreams")
+  st.markdown("### Cartographic Field Atlas")
   st.caption(
-      "Explore your pinned milestones across continents. Click map markers for"
-      " details."
+      "Switch between OpenStreetMap and Google Satellite layers using the map"
+      " control in the top-right corner."
   )
 
-  # Create Folium Map centered nicely
-  m = folium.Map(location=[20.0, 0.0], zoom_start=2, tiles="CartoDB positron")
+  # Initialize map with OpenStreetMap as default
+  m = folium.Map(
+      location=[20.0, 0.0],
+      zoom_start=2,
+      tiles="OpenStreetMap",
+      name="OpenStreetMap",
+  )
 
-  # Color mapping for statuses
+  # Add keyless Google Satellite layer option
+  folium.TileLayer(
+      tiles="https://mt1.google.com/vt/lyrs=s&x={x}&y={y}&z={z}",
+      attr="Google Satellite",
+      name="Google Satellite",
+      max_zoom=20,
+  ).add_to(m)
+
   color_map = {
-      "Achieved": "green",
+      "Achieved": "darkgreen",
       "In Progress": "orange",
-      "Planned": "blue",
+      "Planned": "cadetblue",
   }
 
   for item in st.session_state.bucket_list:
     marker_color = color_map.get(item["status"], "gray")
     popup_html = f"""
-        <div style="font-family: sans-serif; width: 200px;">
-            <h4 style="margin:0; color:#8C5830;">{item['title']}</h4>
-            <p style="margin:4px 0; font-size:12px;"><b>📍 Location:</b> {item['location']}</p>
+        <div style="font-family: Georgia, serif; width: 220px; color: #2D231B;">
+            <h4 style="margin:0; color:#5C3A21; border-bottom: 1px solid #C4B495; padding-bottom:4px;">{item['title']}</h4>
+            <p style="margin:6px 0 4px 0; font-size:12px;"><b>📍 Location:</b> {item['location']}</p>
             <p style="margin:4px 0; font-size:12px;"><b>🏷️ Category:</b> {item['category']}</p>
             <p style="margin:4px 0; font-size:12px;"><b>📌 Status:</b> {item['status']}</p>
-            <hr style="margin:4px 0;">
-            <p style="font-size:11px; color:#555;">{item['notes']}</p>
+            <hr style="margin:4px 0; border-top: 1px solid #C4B495;">
+            <p style="font-size:11px; font-style: italic; color:#555; margin-top:4px;">{item['notes']}</p>
         </div>
         """
     folium.Marker(
         location=[item["lat"], item["lon"]],
         popup=folium.Popup(popup_html, max_width=250),
         tooltip=item["title"],
-        icon=folium.Icon(color=marker_color, icon="bookmark", prefix="fa"),
+        icon=folium.Icon(color=marker_color, icon="book", prefix="fa"),
     ).add_to(m)
 
+  # Add layer control to switch between OSM and Google Satellite
+  folium.LayerControl().add_to(m)
+
   # Render map in Streamlit
-  st_data = st_folium(m, width=1200, height=500)
+  st_data = st_folium(m, width=1200, height=520)
 
 with tab_notes:
   st.markdown("### 📖 The Field Notebook")
-  st.caption(
-      "Browse and filter your bucket list items like pages in a journal."
-  )
+  st.caption("Review your life goals organized like pages in a leather journal.")
 
   # Filter widgets
   filter_col1, filter_col2 = st.columns(2)
@@ -237,7 +272,7 @@ with tab_notes:
   with filter_col2:
     category_filter = st.selectbox(
         "Filter by Category",
-        ["All"] + list(df["category"].unique()),
+        ["All"] + list(df["category"].unique()) if not df.empty else ["All"],
     )
 
   # Apply filters
@@ -247,14 +282,14 @@ with tab_notes:
   if category_filter != "All":
     filtered_df = filtered_df[filtered_df["category"] == category_filter]
 
-  # Display as Moleskine notebook cards
+  # Display as Notebook Entries
   for _, row in filtered_df.iterrows():
     status_emoji = (
-        "✅"
+        "📜"
         if row["status"] == "Achieved"
         else "⏳"
         if row["status"] == "In Progress"
-        else "🎯"
+        else "🧭"
     )
     with st.container():
       col_a, col_b = st.columns([4, 1])
@@ -268,7 +303,7 @@ with tab_notes:
         )
         st.info(row["notes"])
       with col_b:
-        if st.button("Delete", key=f"del_{row['id']}"):
+        if st.button("Delete Entry", key=f"del_{row['id']}"):
           st.session_state.bucket_list = [
               x for x in st.session_state.bucket_list if x["id"] != row["id"]
           ]
@@ -276,29 +311,26 @@ with tab_notes:
       st.divider()
 
 with tab_add:
-  st.markdown("### ✨ Pin a New Life Goal or Adventure")
+  st.markdown("### ✨ Record a New Entry in Your Atlas")
   st.markdown(
-      "Add a new destination, skill, or milestone with its geographic"
+      "Pin a new world destination, milestone, or ambition with its"
       " coordinates."
   )
 
   with st.form("new_bucket_form"):
     new_title = st.text_input(
-        "Goal Title", placeholder="e.g., Scuba dive the Great Barrier Reef"
+        "Goal / Milestone Title",
+        placeholder="e.g., Sail across the Mediterranean",
     )
     new_location = st.text_input(
-        "Location Name", placeholder="e.g., Cairns, Australia"
+        "Location Name", placeholder="e.g., Palma de Mallorca, Spain"
     )
 
     c1, c2 = st.columns(2)
     with c1:
-      new_lat = st.number_input(
-          "Latitude", value=-16.9186, format="%.4f"
-      )  # Default Cairns
+      new_lat = st.number_input("Latitude", value=39.5696, format="%.4f")
     with c2:
-      new_lon = st.number_input(
-          "Longitude", value=145.7781, format="%.4f"
-      )
+      new_lon = st.number_input("Longitude", value=2.6502, format="%.4f")
 
     c3, c4 = st.columns(2)
     with c3:
@@ -317,10 +349,10 @@ with tab_add:
 
     new_notes = st.text_area(
         "Field Notes & Reflections",
-        placeholder="Why do you want to do this? What is the plan?",
+        placeholder="What is the motivation? What is the preparation plan?",
     )
 
-    submitted = st.form_submit_button("Pin to Atlas")
+    submitted = st.form_submit_button("Seal Entry in Atlas")
     if submitted:
       if new_title and new_location:
         new_id = (
@@ -338,40 +370,48 @@ with tab_add:
             "status": new_status,
             "notes": new_notes,
         })
-        st.success(
-            f"Successfully pinned '{new_title}' to your global atlas!"
-        )
+        st.success(f"Successfully recorded '{new_title}' in your field atlas!")
         st.rerun()
       else:
         st.error("Please provide at least a title and location name.")
 
 with tab_analytics:
-  st.markdown("### 📊 Dream Distribution Analytics")
+  st.markdown("### 📊 Expedition & Goal Analytics")
   col_chart1, col_chart2 = st.columns(2)
 
   with col_chart1:
     fig_status = px.pie(
         df,
         names="status",
-        title="Goals by Completion Status",
+        title="Milestones by Status",
         hole=0.4,
-        color_discrete_sequence=["#8C5830", "#D9A98F", "#4A3525"],
+        color_discrete_sequence=["#5C3A21", "#8C6239", "#C4B495"],
     )
-    fig_status.update_layout(paper_bgcolor="rgba(0,0,0,0)")
+    fig_status.update_layout(
+        paper_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Georgia, serif", color="#2D231B"),
+    )
     st.plotly_chart(fig_status, use_container_width=True)
 
   with col_chart2:
-    cat_counts = df["category"].value_counts().reset_index()
-    cat_counts.columns = ["Category", "Count"]
+    cat_counts = (
+        df["category"].value_counts().reset_index()
+        if not df.empty
+        else pd.DataFrame(columns=["Category", "Count"])
+    )
+    if not cat_counts.empty:
+      cat_counts.columns = ["Category", "Count"]
     fig_cat = px.bar(
         cat_counts,
         x="Category",
         y="Count",
-        title="Goals by Category",
+        title="Milestones by Category",
         color="Category",
-        color_discrete_sequence=px.colors.qualitative.Pastel,
+        color_discrete_sequence=["#5C3A21", "#704214", "#8C6239", "#C4B495"],
     )
     fig_cat.update_layout(
-        paper_bgcolor="rgba(0,0,0,0)", plot_bgcolor="rgba(0,0,0,0)"
+        paper_bgcolor="rgba(0,0,0,0)",
+        plot_bgcolor="rgba(0,0,0,0)",
+        font=dict(family="Georgia, serif", color="#2D231B"),
     )
     st.plotly_chart(fig_cat, use_container_width=True)
